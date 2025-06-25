@@ -1,0 +1,57 @@
+pipeline {
+    agent any
+    environment {
+        AWS_region = 'us-west-2'
+    }
+    stages {
+        stage('Clone repository') {
+            steps {
+                checkout scm
+            }
+        }
+        stage('Install terraform') {
+            steps {
+                sh '''
+                terraform -version || curl -o terraform.zip https://releases.hashicorp.com/terraform/1.5.0/terraform_1.5.0_linux_amd64.zip
+                unzip terraform.zip
+                sudo mv terraform /usr/local/bin/
+                '''
+            }
+        }
+        stage ('terraform init & validate') {
+            steps {
+                dir('terraform') {
+                    sh 'terraform init'
+                    sh 'terraform validate' 
+                }
+            }
+        }
+
+        stage('terraform plan') {
+            steps {
+                dir('terraform') {
+                    sh 'terraform plan' 
+                }
+            }
+        }
+        stage('terraform apply') {
+            when {
+                branch 'main'
+            }
+            steps {
+                dir('terraform') {
+                    sh 'terraform apply -auto-approve'
+                }
+            }
+        }
+    }
+    post {
+        failure {
+            echo 'Build failed!'
+        }
+        success {
+            echo 'Build succeeded!'
+        }
+    }
+}
+          
